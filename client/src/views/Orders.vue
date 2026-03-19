@@ -5,6 +5,47 @@
       <p>{{ t('orders.description') }}</p>
     </div>
 
+    <!-- Submitted Restocking Orders section — shown only when there are any -->
+    <div v-if="restockingOrders.length > 0" class="card restocking-orders-section">
+      <div class="card-header">
+        <h3 class="card-title">Submitted Restocking Orders</h3>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Order Number</th>
+              <th>Items</th>
+              <th>Submitted</th>
+              <th>ETA</th>
+              <th>Total Cost</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in restockingOrders" :key="order.id">
+              <td><strong>{{ order.order_number }}</strong></td>
+              <td>
+                <details class="items-details">
+                  <summary class="items-summary">{{ order.items.length }} item(s)</summary>
+                  <div class="items-dropdown">
+                    <div v-for="item in order.items" :key="item.item_sku" class="item-entry">
+                      <span class="item-name">{{ item.item_name }}</span>
+                      <span class="item-meta">Qty: {{ item.quantity }} @ ${{ item.unit_cost }}</span>
+                    </div>
+                  </div>
+                </details>
+              </td>
+              <td>{{ formatDate(order.submission_date) }}</td>
+              <td>{{ formatDate(order.eta) }}</td>
+              <td><strong>${{ order.total_cost.toLocaleString() }}</strong></td>
+              <td><span class="badge submitted">{{ order.status }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else>
@@ -95,6 +136,7 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const restockingOrders = ref([])
 
     // Use shared filters
     const {
@@ -143,6 +185,14 @@ export default {
       return statusMap[status] || 'info'
     }
 
+    const loadRestockingOrders = async () => {
+      try {
+        restockingOrders.value = await api.getRestockingOrders()
+      } catch (err) {
+        console.error('Failed to load restocking orders:', err)
+      }
+    }
+
     const formatDate = (dateString) => {
       const { currentLocale } = useI18n()
       const locale = currentLocale.value === 'ja' ? 'ja-JP' : 'en-US'
@@ -153,13 +203,14 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    onMounted(() => Promise.all([loadOrders(), loadRestockingOrders()]))
 
     return {
       t,
       loading,
       error,
       orders,
+      restockingOrders,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,
@@ -275,5 +326,14 @@ export default {
 .item-meta {
   font-size: 0.813rem;
   color: #64748b;
+}
+
+.badge.submitted {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.restocking-orders-section {
+  margin-bottom: 1.5rem;
 }
 </style>
